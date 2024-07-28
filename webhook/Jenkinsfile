@@ -1,0 +1,28 @@
+pipeline {
+    agent any
+
+    environment {
+        JENKINS_URL = 'http://your-jenkins-server/github-webhook/'
+    }
+
+    stages {
+        stage('Create GitHub Webhook') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'github-token-id', variable: 'GITHUB_TOKEN'),
+                    string(credentialsId: 'repo-owner-id', variable: 'REPO_OWNER'),
+                    string(credentialsId: 'repo-name-id', variable: 'REPO_NAME'),
+                    string(credentialsId: 'secret-id', variable: 'SECRET')
+                ]) {
+                    script {
+                        // Ensure the Python script is available in the workspace
+                        sh 'cp /path/to/your/create_webhook.py .'
+
+                        // Run the Python script
+                        sh 'python3 create_webhook.py'
+                    }
+                }
+            }
+        }
+    }
+}

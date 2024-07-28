@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+    environment {
+        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        CLUSTER_NAME = 'microservices-app-cluster'
+        SERVICE_NAME = 'test-service'
+        IMAGE_NAME = 'test-service-image'
+    }
+    triggers {
+        githubPush()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout([$class: 'GitSCM',
+                          branches: [[name: '*/main']],
+                          userRemoteConfigs: [[url: 'https://github.com/your-repo.git']]
+                ])
+            }
+        }
+
+        stage('Build JAR') {
+            steps {
+                script {
+                    // Build the Spring Boot JAR with Maven
+                    sh 'mvn clean package'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    // Run the tests with Maven
+                    sh 'mvn test'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    // Build your Docker image
+                    sh 'docker build -t $IMAGE_NAME .'
+                }
+            }
+        }
+        stage('Push to ECR') {
+            steps {
+                script {
+                    // Log in to ECR and push the image
+                    sh '''
+                    $(aws ecr get-login --no-include-email --region us-west-2)
+                    docker tag $IMAGE_NAME:latest 123456789012.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_NAME:latest
+                    docker push 123456789012.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_NAME:latest
+                    '''
+                }
+            }
+        }
+        stage('Deploy to ECS') {
+            steps {
+                script {
+                    // Update the ECS service with the new image
+                    sh '''
+                    aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment --region us-west-2
+                    '''
+                }
+            }
+        }
+
+
+    }
+}
